@@ -20,6 +20,7 @@ type (
 		ReadRedis(req models.RedisReq) (string, error)
 		InsertDB(req models.ItemList) error
 		InquiryItems()([]hm.InquiryItems,error)
+		InquiryDiscounts()([]hm.InquiryDiscounts,error)
 	}
 )
 

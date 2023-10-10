@@ -22,6 +22,7 @@ func MainRouter(con controller.ControllerInterface) {
 	v2:= r.Group("v2")
 	{
 		v2.GET("/inquiry/items",con.InquiryItems)
+		v2.GET("/inquiry/discounts",con.InquiryDiscounts)
 	}
 
 	logrus.Info("starts")

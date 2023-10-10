@@ -10,7 +10,9 @@ import (
 
 type(
 	merchant struct{
-		merchantHost	string
+		merchantHost		string
+		inquiryItems		string
+		inquiryDiscounts	string
 	}
 	MerchantInterface interface{
 		Send(types string, body interface{},header http.Header)(gorequest.Response,[]byte,error)
@@ -21,8 +23,11 @@ func (m *merchant)Send(types string, body interface{},header http.Header)(gorequ
 	var url string
 	var method string
 	switch types{
-		case "InquiryItems":
-			url=m.merchantHost+"/v2/inquiry/items"
+		case constants.INQUIRY_ITEMS:
+			url=m.merchantHost+m.inquiryItems
+			method=constants.HTTP_GET
+		case constants.INQUIRY_DISCOUNTS:
+			url=m.merchantHost+m.inquiryDiscounts
 			method=constants.HTTP_GET
 	}
 	res,data,err:=utils.HTTPRequest(url,method,body,header)
@@ -36,5 +41,7 @@ func (m *merchant)Send(types string, body interface{},header http.Header)(gorequ
 func InitMerchant()MerchantInterface{
 	return &merchant{
 		merchantHost:utils.GetEnv("MERCHANT_HOST"),
+		inquiryItems: utils.GetEnv("MERCHANT_INQUIRY_ITEMS"),
+		inquiryDiscounts: utils.GetEnv("MERCHANT_INQUIRY_DISCOUNTS"),
 	}
 }

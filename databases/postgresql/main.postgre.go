@@ -1,6 +1,7 @@
 package postgre
 
 import (
+	dbs "cc-transaction/databases/postgresql/models"
 	"cc-transaction/models"
 	"cc-transaction/utils"
 
@@ -29,7 +30,7 @@ func InitPostgre() PostgreInterface {
 	} else {
 		logrus.Printf("Init Postgre Success")
 	}
-	db.AutoMigrate(&models.ItemList{})
+	db.AutoMigrate(&models.ItemList{},&dbs.Order{})
 
 	return &postgreDB{
 		postgre: db,
