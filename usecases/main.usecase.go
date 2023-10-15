@@ -2,6 +2,7 @@ package usecase
 
 import (
 	host "cc-transaction/hosts"
+	cModels "cc-transaction/hosts/callback/models"
 	hm "cc-transaction/hosts/merchant/models"
 	"cc-transaction/models"
 
@@ -21,6 +22,7 @@ type (
 		InsertDB(req models.ItemList) error
 		InquiryItems()([]hm.InquiryItems,error)
 		InquiryDiscounts()([]hm.InquiryDiscounts,error)
+		TransItem(req cModels.TransactionItems)(cModels.ResponseItems,error)
 	}
 )
 

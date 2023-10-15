@@ -17,6 +17,7 @@ type (
 		InsertPostgre(ctx *gin.Context)
 		InquiryItems(ctx *gin.Context)
 		InquiryDiscounts(ctx *gin.Context)
+		TransItem(ctx *gin.Context)
 	}
 )
 

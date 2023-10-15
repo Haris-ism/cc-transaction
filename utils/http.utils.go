@@ -2,7 +2,6 @@ package utils
 
 import (
 	"cc-transaction/constants"
-	"fmt"
 	"net/http"
 
 	"github.com/parnurzeal/gorequest"
@@ -35,11 +34,17 @@ func HTTPGET(url string, header http.Header)(gorequest.Response,[]byte,error){
 	if err!=nil{
 		return res,[]byte(data),err[0]
 	}
-	fmt.Println("ieu data:",data)
 	return res,[]byte(data),nil
 }
 func HTTPPOST(url string,body interface{}, header http.Header)(gorequest.Response,[]byte,error){
-	return nil,nil,nil
+	request:=gorequest.New()
+	request.SetDebug(true)
+	request.Header=header
+	res,data,err:=request.Post(url).Send(body).End()
+	if err!=nil{
+		return res,[]byte(data),err[0]
+	}
+	return res,[]byte(data),nil
 }
 func HTTPPUT(url string,body interface{}, header http.Header)(gorequest.Response,[]byte,error){
 	return nil,nil,nil
