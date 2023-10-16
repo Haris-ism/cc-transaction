@@ -31,3 +31,10 @@ func(db *postgreDB)DeductCC(req dbModels.CreditCards) error{
 	}
 	return nil
 }
+func(db *postgreDB)UpdateTransItem(req dbModels.Order) error{
+	err:=db.postgre.Save(&req).Error
+	if err!=nil{
+		return err
+	}
+	return nil
+}

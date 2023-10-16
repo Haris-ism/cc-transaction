@@ -21,6 +21,7 @@ type (
 		GetCC(req hModels.TransactionItems) (dbModels.CreditCards,error)
 		OrderTransItem(req dbModels.Order) error
 		DeductCC(req dbModels.CreditCards) error
+		UpdateTransItem(req dbModels.Order) error
 	}
 )
 

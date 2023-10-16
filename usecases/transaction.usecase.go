@@ -62,11 +62,39 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 		return result.Data, errors.New(constants.ERROR_DB)
 	}
 	if res.StatusCode!=200{
+		cc.Balance +=reqTotalPrice
+		err=uc.postgre.DeductCC(cc)
+		if err!=nil{
+			return result.Data,err
+		}
+		reqDB.Status=constants.STATUS_FAILED
+		err=uc.postgre.UpdateTransItem(reqDB)
+		if err!=nil{
+			return result.Data,err
+		}
 		return result.Data, errors.New(constants.ERROR_INQUIRY)
 	}
 	err=json.Unmarshal(bytes,&result)
 	if err!=nil{
 		return result.Data, errors.New(constants.ERROR_INQUIRY)
+	}
+	if result.Code!=200{
+		cc.Balance +=reqTotalPrice
+		err=uc.postgre.DeductCC(cc)
+		if err!=nil{
+			return result.Data,err
+		}
+		reqDB.Status=constants.STATUS_FAILED
+		err=uc.postgre.UpdateTransItem(reqDB)
+		if err!=nil{
+			return result.Data,err
+		}
+		return result.Data,errors.New("Transaction Failed")
+	}
+	reqDB.Status=constants.STATUS_SUCCESS
+	err=uc.postgre.UpdateTransItem(reqDB)
+	if err!=nil{
+		return result.Data,err
 	}
 	return result.Data,nil
 }
