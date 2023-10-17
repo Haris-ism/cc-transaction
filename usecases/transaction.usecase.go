@@ -48,8 +48,13 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 	reqDB.Discount=req.Discount
 	reqDB.Status=constants.STATUS_PENDING
 
-	err=uc.postgre.OrderTransItem(reqDB)
+	resDB,err:=uc.postgre.OrderTransItem(reqDB)
 	if err!=nil{
+		cc.Balance +=reqTotalPrice
+		err:=uc.postgre.DeductCC(cc)
+		if err!=nil{
+			return result.Data,err
+		}
 		return result.Data,err
 	}
 
@@ -59,42 +64,52 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 	req.Amount=reqDB.TotalPrice
 	res,bytes,err:=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,req,header)
 	if err!=nil{
-		return result.Data, errors.New(constants.ERROR_DB)
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
+		if err!=nil{
+			return result.Data,err
+		}
+		return result.Data, errors.New(constants.ERROR_HOST)
 	}
 	if res.StatusCode!=200{
-		cc.Balance +=reqTotalPrice
-		err=uc.postgre.DeductCC(cc)
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
 		if err!=nil{
 			return result.Data,err
 		}
-		reqDB.Status=constants.STATUS_FAILED
-		err=uc.postgre.UpdateTransItem(reqDB)
-		if err!=nil{
-			return result.Data,err
-		}
-		return result.Data, errors.New(constants.ERROR_INQUIRY)
+		return result.Data, errors.New(constants.ERROR_HOST)
 	}
 	err=json.Unmarshal(bytes,&result)
 	if err!=nil{
-		return result.Data, errors.New(constants.ERROR_INQUIRY)
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
+		if err!=nil{
+			return result.Data,err
+		}
+		return result.Data, errors.New(constants.ERROR_HOST)
 	}
 	if result.Code!=200{
-		cc.Balance +=reqTotalPrice
-		err=uc.postgre.DeductCC(cc)
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
 		if err!=nil{
 			return result.Data,err
 		}
-		reqDB.Status=constants.STATUS_FAILED
-		err=uc.postgre.UpdateTransItem(reqDB)
-		if err!=nil{
-			return result.Data,err
-		}
-		return result.Data,errors.New("Transaction Failed")
+		return result.Data,errors.New(constants.ERROR_HOST)
 	}
-	reqDB.Status=constants.STATUS_SUCCESS
-	err=uc.postgre.UpdateTransItem(reqDB)
+	resDB.Status=constants.STATUS_SUCCESS
+	err=uc.postgre.UpdateTransItem(resDB)
 	if err!=nil{
 		return result.Data,err
 	}
 	return result.Data,nil
+}
+
+func (uc *usecase)RollbackTrans(cc dbModels.CreditCards, resDB dbModels.Order, reqTotalPrice int)error{
+	cc.Balance +=reqTotalPrice
+	err:=uc.postgre.DeductCC(cc)
+	if err!=nil{
+		return err
+	}
+	resDB.Status=constants.STATUS_FAILED
+	err=uc.postgre.UpdateTransItem(resDB)
+	if err!=nil{
+		return err
+	}
+	return nil
 }

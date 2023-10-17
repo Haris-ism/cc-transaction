@@ -19,7 +19,7 @@ type (
 	PostgreInterface interface {
 		Insert(req models.ItemList) error
 		GetCC(req hModels.TransactionItems) (dbModels.CreditCards,error)
-		OrderTransItem(req dbModels.Order) error
+		OrderTransItem(req dbModels.Order) (dbModels.Order,error)
 		DeductCC(req dbModels.CreditCards) error
 		UpdateTransItem(req dbModels.Order) error
 	}

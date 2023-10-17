@@ -16,12 +16,12 @@ func(db *postgreDB)GetCC(req models.TransactionItems) (dbModels.CreditCards,erro
 	return reqDB,nil
 }
 
-func(db *postgreDB)OrderTransItem(req dbModels.Order) error{
+func(db *postgreDB)OrderTransItem(req dbModels.Order) (dbModels.Order,error){
 	err:=db.postgre.Create(&req).Error
 	if err!=nil{
-		return err
+		return req,err
 	}
-	return nil
+	return req,nil
 }
 
 func(db *postgreDB)DeductCC(req dbModels.CreditCards) error{
