@@ -4,14 +4,27 @@ import (
 	"cc-transaction/constants"
 	dbModels "cc-transaction/databases/postgresql/models"
 	"cc-transaction/hosts/callback/models"
+	"cc-transaction/utils"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 )
 
 func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,error){
 	result:=models.ResponseTransactionItems{}
+
+	req,err:=utils.DecryptTransItem(req)
+	if err!=nil{
+		return result.Data, err
+	}
 	
+	itemID,_:=strconv.Atoi(req.ItemID)
+	// discounts,_:=strconv.Atoi(req.Discount)
+	prices,_:=strconv.Atoi(req.Price)
+	qtys,_:=strconv.Atoi(req.Quantity)
+	percentages,_:=strconv.Atoi(req.Percentage)
+
 	cc,err:=uc.postgre.GetCC(req)
 	if err!=nil{
 		return result.Data,err
@@ -21,9 +34,9 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 		return result.Data,errors.New("Invalid Credit Cards")
 	}
 
-	discount:=float64(req.Percentage)/100
-	price:=float64(req.Price)
-	qty:=float64(req.Quantity)
+	discount:=float64(percentages)/100
+	price:=float64(prices)
+	qty:=float64(qtys)
 	reqTotalPrice:=int((price-(price*discount))*qty)
 
 	if reqTotalPrice>cc.Balance{
@@ -38,12 +51,12 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 	}
 
 	reqDB:=dbModels.Order{}
-	reqDB.ItemID=req.ItemID
+	reqDB.ItemID=itemID
 	reqDB.Name=req.Name
 	reqDB.Type=req.Type
-	reqDB.Price=req.Price
+	reqDB.Price=prices
 	reqDB.TotalPrice=reqTotalPrice
-	reqDB.Quantity=req.Quantity
+	reqDB.Quantity=qtys
 	reqDB.CC=req.CCNumber
 	reqDB.Discount=req.Discount
 	reqDB.Status=constants.STATUS_PENDING
@@ -61,8 +74,12 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 	header.Add("Content-Type", "application/json")
-	req.Amount=reqDB.TotalPrice
-	res,bytes,err:=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,req,header)
+	req.Amount=strconv.Itoa(reqDB.TotalPrice)
+	reqHost,err:=utils.EncryptTransItem(req)
+	if err!=nil{
+		return result.Data, err
+	}
+	res,bytes,err:=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
 	if err!=nil{
 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
 		if err!=nil{
