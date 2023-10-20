@@ -12,6 +12,13 @@ type TransactionItems struct{
 	Type			string		`json:"type"`
 	Percentage		string		`json:"percentage"`
 }
+type ReqCallbackItems struct{
+	ItemID			string		`json:"item_id"`
+	Discount		string		`json:"discount"`
+	Quantity		string		`json:"quantity"`
+	CCNumber		string		`json:"cc_number"`
+	Amount			string		`json:"amount"`
+}
 
 type ResponseItems struct{
 	ID			string		`json:"item_id"`

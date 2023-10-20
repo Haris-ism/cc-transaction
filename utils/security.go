@@ -99,7 +99,7 @@ func DecryptArray(arr string,ch chan []string){
 	ch<-result
 }
 
-func EncryptTransItem(req models.TransactionItems)(models.TransactionItems,error){
+func EncryptTransItem(req models.ReqCallbackItems)(models.ReqCallbackItems,error){
 	chanID:=make(chan string)
 	chanDiscount:=make(chan string)
 	chanQuantity:=make(chan string)

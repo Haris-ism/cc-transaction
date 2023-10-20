@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"cc-transaction/constants"
+	cModels "cc-transaction/controllers/models"
 	dbModels "cc-transaction/databases/postgresql/models"
 	"cc-transaction/hosts/callback/models"
 	"cc-transaction/utils"
@@ -9,9 +10,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 )
 
-func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,error){
+func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeader)(models.ResponseItems,error){
 	result:=models.ResponseTransactionItems{}
 
 	req,err:=utils.DecryptTransItem(req)
@@ -70,15 +72,30 @@ func (uc *usecase)TransItem(req models.TransactionItems)(models.ResponseItems,er
 		}
 		return result.Data,err
 	}
+	timeStamp:=time.Now().Format("15:04:05")
+	
+	// req.Amount=strconv.Itoa(reqDB.TotalPrice)
+	reqHost:=models.ReqCallbackItems{}
+	reqHost.Amount=strconv.Itoa(reqDB.TotalPrice)
+	reqHost.CCNumber=req.CCNumber
+	reqHost.Discount=req.Discount
+	reqHost.ItemID=req.ItemID
+	reqHost.Quantity=req.Quantity
 
-	header := make(http.Header)
-	header.Add("Accept", "*/*")
-	header.Add("Content-Type", "application/json")
-	req.Amount=strconv.Itoa(reqDB.TotalPrice)
-	reqHost,err:=utils.EncryptTransItem(req)
+	reqHost,err=utils.EncryptTransItem(reqHost)
 	if err!=nil{
 		return result.Data, err
 	}
+	bytes,err:=json.Marshal(reqHost)
+	if err!=nil{
+		return result.Data, err
+	}
+	signature:=utils.Signature(string(bytes),timeStamp)
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
+	header.Add("Content-Type", "application/json")
+	header.Add("TimeStamp", timeStamp)
+	header.Add("Signature", signature)
 	res,bytes,err:=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
 	if err!=nil{
 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
