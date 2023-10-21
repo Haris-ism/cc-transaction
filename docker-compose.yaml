@@ -2,8 +2,14 @@ version: "3.8"
 
 services:
   postgre:
-    image: postgres:14
+    image: postgres:14.9-alpine3.18
     container_name: postgre
+    healthcheck:
+      #CHANGE 1: this command checks if the database is ready, right on the source db server
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -15,17 +21,12 @@ services:
     ports:
       - "6378:6379"
   backend:
+    container_name: cc-transaction
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      - POSTGRE=host=postgre user=postgres password=postgres dbname=postgres port=5432 sslmode=disable TimeZone=Asia/Shanghai
-      - REDIS_HOST=redis:6379
-      - REDIS_PASSWORD=
     depends_on:
-      - postgre
-      - redis
+      postgre: 
+        condition: service_healthy
     ports:
-      - "8080:8080"
-    volumes:
-      - "./:/app"
+      - "9090:9090"
