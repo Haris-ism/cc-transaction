@@ -21,11 +21,22 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 		return result.Data, err
 	}
 	
-	itemID,_:=strconv.Atoi(req.ItemID)
-	// discounts,_:=strconv.Atoi(req.Discount)
-	prices,_:=strconv.Atoi(req.Price)
-	qtys,_:=strconv.Atoi(req.Quantity)
+	itemID,err:=strconv.Atoi(req.ItemID)
+	if err!=nil{
+		return result.Data, err
+	}
+	prices,err:=strconv.Atoi(req.Price)
+	if err!=nil{
+		return result.Data, err
+	}
+	qtys,err:=strconv.Atoi(req.Quantity)
+	if err!=nil{
+		return result.Data, err
+	}
 	percentages,_:=strconv.Atoi(req.Percentage)
+	if err!=nil{
+		return result.Data, err
+	}
 
 	cc,err:=uc.postgre.GetCC(req)
 	if err!=nil{
@@ -96,15 +107,8 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 	header.Add("Content-Type", "application/json")
 	header.Add("TimeStamp", timeStamp)
 	header.Add("Signature", signature)
-	res,bytes,err:=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
+	_,bytes,err=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
 	if err!=nil{
-		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
-		if err!=nil{
-			return result.Data,err
-		}
-		return result.Data, errors.New(constants.ERROR_HOST)
-	}
-	if res.StatusCode!=200{
 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
 		if err!=nil{
 			return result.Data,err
@@ -124,7 +128,7 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 		if err!=nil{
 			return result.Data,err
 		}
-		return result.Data,errors.New(constants.ERROR_HOST)
+		return result.Data,errors.New(result.Message)
 	}
 	resDB.Status=constants.STATUS_SUCCESS
 	err=uc.postgre.UpdateTransItem(resDB)
