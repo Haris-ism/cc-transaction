@@ -12,12 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func SignatureValidation(reqHeader models.ReqHeader,reqBody hModels.TransactionItems)error{
+func SignatureValidation(reqHeader models.ReqHeader,reqBody hModels.DecTransactionItems)error{
 
 	body,err:=json.Marshal(reqBody)
 	hash:=Signature(string(body),reqHeader.TimeStamp)
-	fmt.Println("hash:",hash)
-	fmt.Println("sig:",reqHeader.Signature)
+	// fmt.Println("hash:",hash)
+	// fmt.Println("sig:",reqHeader.Signature)
 	if hash!=reqHeader.Signature{
 		logrus.Error("err:",err)
 		return errors.New("Invalid Signature")
@@ -28,9 +28,9 @@ func SignatureValidation(reqHeader models.ReqHeader,reqBody hModels.TransactionI
 func Signature(req string,ts string)string{
 	key:=GetEnv("SIG_KEY")
 	data:=req+"&"+ts+"&"+key
-	fmt.Println("data:",data)
+	// fmt.Println("data:",data)
 	res:=HashSha512(key,data)
-	fmt.Println("res:",res)
+	// fmt.Println("res:",res)
 	return res
 }
 func HashSha512(secret, data string) string {

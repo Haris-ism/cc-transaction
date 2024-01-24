@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+option go_package = "protogen/merchant";
+
+import "google/protobuf/empty.proto";
+
+message InquiryItemsModel {
+    int32   ID          = 1 [json_name="id"];
+    string  Name        = 2 [json_name="name"];
+    string  Type        = 3 [json_name="type"];
+    int32   Price       = 4 [json_name="price"];
+    int32   Quantity    = 5 [json_name="quantity"];
+}
+
+message InquiryDiscountsModel {
+    int32   ID          = 1 [json_name="id"];
+    string  Name        = 2 [json_name="name"];
+    string  Type        = 3 [json_name="type"];
+    int32   Percentage  = 4 [json_name="percentage"];
+}
+
+message InquiryMerchantItemsModel {
+    string      Message             = 1 [json_name="message"];
+    int32       Code                = 2 [json_name="code"];
+    repeated    InquiryItemsModel  Data  = 3 [json_name="data"];
+}
+
+message InquiryMerchantDiscountsModel {
+    string      Message             = 1 [json_name="message"];
+    int32       Code                = 2 [json_name="code"];
+    repeated    InquiryDiscountsModel  Data  = 3 [json_name="data"];
+}
+
+service InquiryServices {
+    rpc InquiryItems (google.protobuf.Empty) returns (InquiryMerchantItemsModel) {}
+    rpc InquiryDiscounts (google.protobuf.Empty) returns (InquiryMerchantDiscountsModel) {}
+}

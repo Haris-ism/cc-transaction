@@ -16,7 +16,7 @@ func (c *controller)TransItem(ctx *gin.Context){
 		Message: constants.SUCCESS,
 		Code:http.StatusOK,
 	}
-	reqBody:=cModels.TransactionItems{}
+	reqBody:=cModels.DecTransactionItems{}
 	if err:=ctx.BindJSON(&reqBody);err!=nil{
 		logrus.Error(err)
 		res.Message=err.Error()

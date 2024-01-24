@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+option go_package = "protogen/merchant";
+
+// import "google/protobuf/empty.proto";
+
+message ReqTransItems {
+    string   ItemID     = 1     [json_name="item_id"];
+    string   Discount   = 2     [json_name="discount"];
+    string   Quantity   = 3     [json_name="quantity"];
+    string   CCNumber   = 4     [json_name="cc_number"];
+    string   CVV        = 5     [json_name="cvv"];
+    string   Amount     = 6     [json_name="amount"];
+    string   Price      = 7     [json_name="price"];
+    string   Name       = 8     [json_name="name"];
+    string   Type       = 9     [json_name="type"];
+    string   Percentage = 10    [json_name="percentage"];
+}
+
+message ResTransItems {
+    string   ID         = 1     [json_name="item_id"];
+    string   Name       = 2     [json_name="item_name"];
+    string   Quantity   = 3     [json_name="quantity"];
+    string   CC         = 4     [json_name="cc_number"];
+}
+
+message ReqCallbackItems {
+    string   ItemID     = 1     [json_name="item_id"];
+    string   Discount   = 2     [json_name="discount"];
+    string   Quantity   = 3     [json_name="quantity"];
+    string   CCNumber   = 4     [json_name="cc_number"];
+    string   Amount     = 5     [json_name="amount"];
+}
+
+message ResCallbackItems {
+    string   ID         = 1     [json_name="item_id"];
+    string   Name       = 2     [json_name="item_name"];
+    string   Quantity   = 3     [json_name="quantity"];
+    string   CCNumber   = 4     [json_name="cc_number"];
+    string   Code       = 5     [json_name="code"];
+}
+
+message ResMerchantCallbackModel {
+    string              Message = 1 [json_name="message"];
+    int32               Code    = 2 [json_name="code"];
+    ResCallbackItems    Data    = 3 [json_name="data"];
+}
+
+message ResMerchantTransModel {
+    string          Message = 1 [json_name="message"];
+    int32           Code    = 2 [json_name="code"];
+    ResTransItems   Data    = 3 [json_name="data"];
+}
+
+service TransServices {
+    rpc TransItems(ReqTransItems) returns (ResMerchantTransModel);
+    rpc CallbackTransItems(ReqCallbackItems) returns (ResMerchantCallbackModel);
+}
+
+
+// type ResponseItems struct{
+// 	ID			string		`json:"item_id"`
+// 	Name		string		`json:"item_name"`
+// 	Quantity	string		`json:"quantity"`
+// 	CC			string		`json:"cc_number"`
+// 	Code		string		`json:"code"`
+// }
+
+// type ReqCallbackItems struct{
+// 	ItemID			string		`json:"item_id"`
+// 	Discount		string		`json:"discount"`
+// 	Quantity		string		`json:"quantity"`
+// 	CCNumber		string		`json:"cc_number"`
+// 	Amount			string		`json:"amount"`
+// }
+
+// type DecTransItem struct{
+// 	ID			string		`json:"item_id"`
+// 	Name		string		`json:"item_name"`
+// 	Quantity	string		`json:"quantity"`
+// 	CC			string		`json:"cc_number"`
+// 	Code		[]string	`json:"code"`
+// }
+
+// type TransactionItems struct{
+// 	ItemID			string		`json:"item_id"`
+// 	Discount		string		`json:"discount"`
+// 	Quantity		string		`json:"quantity"`
+// 	CCNumber		string		`json:"cc_number"`
+// 	CVV				string		`json:"cvv"`
+// 	Amount			string		`json:"amount"`
+// 	Price			string		`json:"price"`
+// 	Name			string		`json:"name"`
+// 	Type			string		`json:"type"`
+// 	Percentage		string		`json:"percentage"`
+// }

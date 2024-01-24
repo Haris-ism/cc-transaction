@@ -13,37 +13,37 @@ import (
 	"time"
 )
 
-func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeader)(models.ResponseItems,error){
+func (uc *usecase)TransItem(req models.DecTransactionItems,headers cModels.ReqHeader)(string,error){
 	result:=models.ResponseTransactionItems{}
 
-	req,err:=utils.DecryptTransItem(req)
+	decryptedReq,err:=utils.DecryptTransItem(req)
 	if err!=nil{
 		return result.Data, err
 	}
 	
-	itemID,err:=strconv.Atoi(req.ItemID)
+	itemID,err:=strconv.Atoi(decryptedReq.ItemID)
 	if err!=nil{
 		return result.Data, err
 	}
-	prices,err:=strconv.Atoi(req.Price)
+	prices,err:=strconv.Atoi(decryptedReq.Price)
 	if err!=nil{
 		return result.Data, err
 	}
-	qtys,err:=strconv.Atoi(req.Quantity)
+	qtys,err:=strconv.Atoi(decryptedReq.Quantity)
 	if err!=nil{
 		return result.Data, err
 	}
-	percentages,_:=strconv.Atoi(req.Percentage)
+	percentages,_:=strconv.Atoi(decryptedReq.Percentage)
 	if err!=nil{
 		return result.Data, err
 	}
 
-	cc,err:=uc.postgre.GetCC(req)
+	cc,err:=uc.postgre.GetCC(decryptedReq)
 	if err!=nil{
 		return result.Data,err
 	}
 
-	if req.CVV!=cc.CVV{
+	if decryptedReq.CVV!=cc.CVV{
 		return result.Data,errors.New("Invalid Credit Cards")
 	}
 
@@ -65,13 +65,13 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 
 	reqDB:=dbModels.Order{}
 	reqDB.ItemID=itemID
-	reqDB.Name=req.Name
-	reqDB.Type=req.Type
+	reqDB.Name=decryptedReq.Name
+	reqDB.Type=decryptedReq.Type
 	reqDB.Price=prices
 	reqDB.TotalPrice=reqTotalPrice
 	reqDB.Quantity=qtys
-	reqDB.CC=req.CCNumber
-	reqDB.Discount=req.Discount
+	reqDB.CC=decryptedReq.CCNumber
+	reqDB.Discount=decryptedReq.Discount
 	reqDB.Status=constants.STATUS_PENDING
 
 	resDB,err:=uc.postgre.OrderTransItem(reqDB)
@@ -85,19 +85,20 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 	}
 	timeStamp:=time.Now().Format("15:04:05")
 	
-	// req.Amount=strconv.Itoa(reqDB.TotalPrice)
 	reqHost:=models.ReqCallbackItems{}
 	reqHost.Amount=strconv.Itoa(reqDB.TotalPrice)
-	reqHost.CCNumber=req.CCNumber
-	reqHost.Discount=req.Discount
-	reqHost.ItemID=req.ItemID
-	reqHost.Quantity=req.Quantity
+	reqHost.CCNumber=decryptedReq.CCNumber
+	reqHost.Discount=decryptedReq.Discount
+	reqHost.ItemID=decryptedReq.ItemID
+	reqHost.Quantity=decryptedReq.Quantity
 
-	reqHost,err=utils.EncryptTransItem(reqHost)
+	// fmt.Println("reqHost",reqHost)
+	encryptedReqHost,err:=utils.EncryptTransItem(reqHost)
 	if err!=nil{
 		return result.Data, err
 	}
-	bytes,err:=json.Marshal(reqHost)
+	// fmt.Println("encryptedReqHost:",encryptedReqHost)
+	bytes,err:=json.Marshal(encryptedReqHost)
 	if err!=nil{
 		return result.Data, err
 	}
@@ -107,7 +108,7 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 	header.Add("Content-Type", "application/json")
 	header.Add("TimeStamp", timeStamp)
 	header.Add("Signature", signature)
-	_,bytes,err=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
+	_,bytes,err=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,encryptedReqHost,header)
 	if err!=nil{
 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
 		if err!=nil{
@@ -139,6 +140,7 @@ func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeade
 }
 
 func (uc *usecase)RollbackTrans(cc dbModels.CreditCards, resDB dbModels.Order, reqTotalPrice int)error{
+	// fmt.Println("rollback called")
 	cc.Balance +=reqTotalPrice
 	err:=uc.postgre.DeductCC(cc)
 	if err!=nil{

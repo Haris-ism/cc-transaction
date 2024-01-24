@@ -23,7 +23,7 @@ type (
 		InsertDB(req models.ItemList) error
 		InquiryItems()([]hm.InquiryItems,error)
 		InquiryDiscounts()([]hm.InquiryDiscounts,error)
-		TransItem(req cModels.TransactionItems, headers con.ReqHeader)(cModels.ResponseItems,error)
+		TransItem(req cModels.DecTransactionItems, headers con.ReqHeader)(string,error)
 	}
 )
 

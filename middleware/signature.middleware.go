@@ -4,7 +4,7 @@ import (
 	"cc-transaction/constants"
 	"cc-transaction/controllers/models"
 	"cc-transaction/utils"
-	"fmt"
+	"log"
 	"net/http"
 
 	hModels "cc-transaction/hosts/callback/models"
@@ -26,7 +26,7 @@ func SignatureValidation(ctx *gin.Context){
 		ctx.Abort()
 		return
 	}
-	fmt.Println("header:",reqHeader)
+	log.Println("header:",reqHeader)
 	reqBody:=hModels.TransactionItems{}
 	if err:=ctx.BindJSON(&reqBody);err!=nil{
 		logrus.Error("err:",err)
@@ -38,8 +38,8 @@ func SignatureValidation(ctx *gin.Context){
 	}
 	body,err:=json.Marshal(reqBody)
 	hash:=utils.Signature(string(body),reqHeader.TimeStamp)
-	fmt.Println("hash:",hash)
-	fmt.Println("sig:",reqHeader.Signature)
+	log.Println("hash:",hash)
+	log.Println("sig:",reqHeader.Signature)
 	if hash!=reqHeader.Signature{
 		logrus.Error("err:",err)
 		res.Message=constants.ERROR_TOKEN
