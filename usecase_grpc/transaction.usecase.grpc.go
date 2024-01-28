@@ -1,196 +1,153 @@
 package usecase_grpc
 
 import (
+	"cc-transaction/constants"
+	dbModels "cc-transaction/databases/postgresql/models"
+	"cc-transaction/hosts/callback/models"
 	"cc-transaction/protogen/merchant"
+	"cc-transaction/utils"
 	"context"
+	"encoding/json"
+	"errors"
+	"strconv"
+	"time"
+
 	"log"
+
+	"google.golang.org/grpc/metadata"
 )
 
-func (uc *usecaseGrpc)CallbackTransItems(ctx context.Context, req *merchant.ReqCallbackItems)(*merchant.ResCallbackItems, error){
-	log.Println("masuk uc")
-	result:=merchant.ResCallbackItems{}
-	// fmt.Println("trans req:",req)
-	// req,err:=utils.DecryptTransItemGrpc(req)
-	// if err!=nil{
-	// 	return &result, err
-	// }
+func (uc *usecaseGrpc)TransItems(req *merchant.ReqTransItemsModel)(string, error){
+	result:=""
+
+	decryptedReq,err:=utils.DecryptTransItemGrpc(req)
+	if err!=nil{
+		return result, err
+	}
 	
-	// itemID,err:=strconv.Atoi(req.ItemID)
-	// if err!=nil{
-	// 	return &result, err
-	// }
-	// prices,err:=strconv.Atoi(req.Price)
-	// if err!=nil{
-	// 	return result.Data, err
-	// }
-	// qtys,err:=strconv.Atoi(req.Quantity)
-	// if err!=nil{
-	// 	return result.Data, err
-	// }
-	// percentages,_:=strconv.Atoi(req.Percentage)
-	// if err!=nil{
-	// 	return result.Data, err
-	// }
+	itemID,err:=strconv.Atoi(decryptedReq.ItemID)
+	if err!=nil{
+		return result, err
+	}
+	prices,err:=strconv.Atoi(decryptedReq.Price)
+	if err!=nil{
+		return result, err
+	}
+	qtys,err:=strconv.Atoi(decryptedReq.Quantity)
+	if err!=nil{
+		return result, err
+	}
+	percentages,_:=strconv.Atoi(decryptedReq.Percentage)
+	if err!=nil{
+		return result, err
+	}
 
-	// cc,err:=uc.postgre.GetCC(req)
-	// if err!=nil{
-	// 	return result.Data,err
-	// }
+	cc,err:=uc.postgre.GetCC(decryptedReq)
+	if err!=nil{
+		return result,err
+	}
 
-	// if req.CVV!=cc.CVV{
-	// 	return result.Data,errors.New("Invalid Credit Cards")
-	// }
+	if decryptedReq.CVV!=cc.CVV{
+		return result,errors.New("Invalid Credit Cards")
+	}
 
-	// discount:=float64(percentages)/100
-	// price:=float64(prices)
-	// qty:=float64(qtys)
-	// reqTotalPrice:=int((price-(price*discount))*qty)
+	discount:=float64(percentages)/100
+	price:=float64(prices)
+	qty:=float64(qtys)
+	reqTotalPrice:=int((price-(price*discount))*qty)
 
-	// if reqTotalPrice>cc.Balance{
-	// 	return result.Data,errors.New("Insuficient Balance")
-	// }
+	if reqTotalPrice>cc.Balance{
+		return result,errors.New("Insuficient Balance")
+	}
 
-	// cc.Balance -=reqTotalPrice
+	cc.Balance -=reqTotalPrice
 	
-	// err=uc.postgre.DeductCC(cc)
-	// if err!=nil{
-	// 	return result.Data,err
-	// }
-	// res,err:=uc.host.Merchant().InquiryItems()
-	// if err!=nil{
-	// 	log.Println("err:",err)
-	// 	return res.Data, errors.New(constants.ERROR_DB)
-	// }
-	// if res.Code!=200{
-	// 	log.Println("err res code:",res.Code)
-	// 	return res.Data, errors.New(constants.ERROR_INQUIRY)
-	// }
-	// log.Println("grpc res:",res)
-	return &result,nil
+	err=uc.postgre.DeductCC(cc)
+	if err!=nil{
+		return result,err
+	}
+
+	reqDB:=dbModels.Order{}
+	reqDB.ItemID=itemID
+	reqDB.Name=decryptedReq.Name
+	reqDB.Type=decryptedReq.Type
+	reqDB.Price=prices
+	reqDB.TotalPrice=reqTotalPrice
+	reqDB.Quantity=qtys
+	reqDB.CC=decryptedReq.CCNumber
+	reqDB.Discount=decryptedReq.Discount
+	reqDB.Status=constants.STATUS_PENDING
+
+	resDB,err:=uc.postgre.OrderTransItem(reqDB)
+	if err!=nil{
+		cc.Balance +=reqTotalPrice
+		err:=uc.postgre.DeductCC(cc)
+		if err!=nil{
+			return result,err
+		}
+		return result,err
+	}
+	timeStamp:=time.Now().Format("15:04:05")
+	
+	reqHost:=models.ReqCallbackItems{}
+	reqHost.Amount=strconv.Itoa(reqDB.TotalPrice)
+	reqHost.CCNumber=decryptedReq.CCNumber
+	reqHost.Discount=decryptedReq.Discount
+	reqHost.ItemID=decryptedReq.ItemID
+	reqHost.Quantity=decryptedReq.Quantity
+
+	encryptedReqHost,err:=utils.EncryptTransItemGrpc(reqHost)
+	if err!=nil{
+		return result, err
+	}
+	bytes,err:=json.Marshal(encryptedReqHost)
+	if err!=nil{
+		return result, err
+	}
+	signature:=utils.Signature(string(bytes),timeStamp)
+	meta:=map[string]string{
+		"timestamp":timeStamp,
+		"signature":signature,
+	}
+	md := metadata.New(meta)
+	ctx:=metadata.NewOutgoingContext(context.Background(),md)
+	resHost,err:=uc.host.Merchant().TransItems(ctx,encryptedReqHost)
+	log.Println("resHost:",resHost)
+
+	if err!=nil{
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
+		if err!=nil{
+			return result,err
+		}
+		return result, errors.New(constants.ERROR_HOST)
+	}
+
+	if resHost.Code!=200{
+		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
+		if err!=nil{
+			return result,err
+		}
+		return result,errors.New(constants.STATUS_FAILED)
+	}
+	resDB.Status=constants.STATUS_SUCCESS
+	err=uc.postgre.UpdateTransItem(resDB)
+	if err!=nil{
+		return result,err
+	}
+
+	return resHost.Data,nil
 }
 
-
-// func (uc *usecase)TransItem(req models.TransactionItems,headers cModels.ReqHeader)(models.ResponseItems,error){
-// 	result:=models.ResponseTransactionItems{}
-
-// 	req,err:=utils.DecryptTransItem(req)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-	
-// 	itemID,err:=strconv.Atoi(req.ItemID)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-// 	prices,err:=strconv.Atoi(req.Price)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-// 	qtys,err:=strconv.Atoi(req.Quantity)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-// 	percentages,_:=strconv.Atoi(req.Percentage)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-
-// 	cc,err:=uc.postgre.GetCC(req)
-// 	if err!=nil{
-// 		return result.Data,err
-// 	}
-
-// 	if req.CVV!=cc.CVV{
-// 		return result.Data,errors.New("Invalid Credit Cards")
-// 	}
-
-// 	discount:=float64(percentages)/100
-// 	price:=float64(prices)
-// 	qty:=float64(qtys)
-// 	reqTotalPrice:=int((price-(price*discount))*qty)
-
-// 	if reqTotalPrice>cc.Balance{
-// 		return result.Data,errors.New("Insuficient Balance")
-// 	}
-
-// 	cc.Balance -=reqTotalPrice
-	
-// 	err=uc.postgre.DeductCC(cc)
-// 	if err!=nil{
-// 		return result.Data,err
-// 	}
-
-// 	reqDB:=dbModels.Order{}
-// 	reqDB.ItemID=itemID
-// 	reqDB.Name=req.Name
-// 	reqDB.Type=req.Type
-// 	reqDB.Price=prices
-// 	reqDB.TotalPrice=reqTotalPrice
-// 	reqDB.Quantity=qtys
-// 	reqDB.CC=req.CCNumber
-// 	reqDB.Discount=req.Discount
-// 	reqDB.Status=constants.STATUS_PENDING
-
-// 	resDB,err:=uc.postgre.OrderTransItem(reqDB)
-// 	if err!=nil{
-// 		cc.Balance +=reqTotalPrice
-// 		err:=uc.postgre.DeductCC(cc)
-// 		if err!=nil{
-// 			return result.Data,err
-// 		}
-// 		return result.Data,err
-// 	}
-// 	timeStamp:=time.Now().Format("15:04:05")
-	
-// 	// req.Amount=strconv.Itoa(reqDB.TotalPrice)
-// 	reqHost:=models.ReqCallbackItems{}
-// 	reqHost.Amount=strconv.Itoa(reqDB.TotalPrice)
-// 	reqHost.CCNumber=req.CCNumber
-// 	reqHost.Discount=req.Discount
-// 	reqHost.ItemID=req.ItemID
-// 	reqHost.Quantity=req.Quantity
-
-// 	reqHost,err=utils.EncryptTransItem(reqHost)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-// 	bytes,err:=json.Marshal(reqHost)
-// 	if err!=nil{
-// 		return result.Data, err
-// 	}
-// 	signature:=utils.Signature(string(bytes),timeStamp)
-// 	header := make(http.Header)
-// 	header.Add("Accept", "*/*")
-// 	header.Add("Content-Type", "application/json")
-// 	header.Add("TimeStamp", timeStamp)
-// 	header.Add("Signature", signature)
-// 	_,bytes,err=uc.host.Callback().Send(constants.TRANSACTION_ITEMS,reqHost,header)
-// 	if err!=nil{
-// 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
-// 		if err!=nil{
-// 			return result.Data,err
-// 		}
-// 		return result.Data, errors.New(constants.ERROR_HOST)
-// 	}
-// 	err=json.Unmarshal(bytes,&result)
-// 	if err!=nil{
-// 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
-// 		if err!=nil{
-// 			return result.Data,err
-// 		}
-// 		return result.Data, errors.New(constants.ERROR_HOST)
-// 	}
-// 	if result.Code!=200{
-// 		err:=uc.RollbackTrans(cc,resDB,reqTotalPrice)
-// 		if err!=nil{
-// 			return result.Data,err
-// 		}
-// 		return result.Data,errors.New(result.Message)
-// 	}
-// 	resDB.Status=constants.STATUS_SUCCESS
-// 	err=uc.postgre.UpdateTransItem(resDB)
-// 	if err!=nil{
-// 		return result.Data,err
-// 	}
-// 	return result.Data,nil
-// }
+func (uc *usecaseGrpc)RollbackTrans(cc dbModels.CreditCards, resDB dbModels.Order, reqTotalPrice int)error{
+	cc.Balance +=reqTotalPrice
+	err:=uc.postgre.DeductCC(cc)
+	if err!=nil{
+		return err
+	}
+	resDB.Status=constants.STATUS_FAILED
+	err=uc.postgre.UpdateTransItem(resDB)
+	if err!=nil{
+		return err
+	}
+	return nil
+}

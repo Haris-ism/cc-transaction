@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "protogen/merchant";
+import "proto/merchant/type/inquiry.proto";
+import "proto/merchant/type/transaction.proto";
+import "google/protobuf/empty.proto";
+
+service MerchantServices {
+    rpc InquiryItems (google.protobuf.Empty) returns (InquiryMerchantItemsModel) {}
+    rpc InquiryDiscounts (google.protobuf.Empty) returns (InquiryMerchantDiscountsModel) {}
+    rpc TransItems(ReqTransItemsModel) returns (ResMerchantTransModel);
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cc-transaction/constants"
 	"cc-transaction/hosts/callback/models"
+	"cc-transaction/protogen/merchant"
 
 	// "cc-transaction/hosts/transaction/models"
 	"crypto/aes"
@@ -103,6 +104,21 @@ func DecryptArray(arr string,ch chan []string){
 	ch<-result
 }
 
+func EncryptTransItemGrpc(req models.ReqCallbackItems)(*merchant.ReqTransItemsModel,error){
+	res:=&merchant.ReqTransItemsModel{}
+	// fmt.Println("req:",req)
+	bytes,err:=json.Marshal(req)
+	if err!=nil{
+		return res,errors.New(constants.ERROR_DB)
+	}
+	chanReq:=make(chan string)
+	go EncryptFunc(string(bytes),chanReq)
+	encrypted:=<-chanReq
+	// fmt.Println("encrypted string:",encrypted)
+	res.Request=encrypted
+
+	return res,nil
+}
 func EncryptTransItem(req models.ReqCallbackItems)(models.DecTransactionItems,error){
 	res:=models.DecTransactionItems{}
 	// fmt.Println("req:",req)
@@ -115,6 +131,20 @@ func EncryptTransItem(req models.ReqCallbackItems)(models.DecTransactionItems,er
 	encrypted:=<-chanReq
 	// fmt.Println("encrypted string:",encrypted)
 	res.Req=encrypted
+
+	return res,nil
+}
+func DecryptTransItemGrpc(req *merchant.ReqTransItemsModel)(models.TransactionItems,error){
+	res:=models.TransactionItems{}
+	chanReq:=make(chan string)
+	go DecryptFunc(req.Request,chanReq)
+
+	decrypted:=<-chanReq
+	fmt.Println("decrypted:",decrypted)
+	err:=json.Unmarshal([]byte(decrypted),&res)
+	if err!=nil{
+		fmt.Println("err decrypted:",err)
+	}
 
 	return res,nil
 }

@@ -13,7 +13,7 @@ import (
 type (
 	GrpcServer struct {
 		Config *grpc.Server
-		merchant.TransServicesServer
+		merchant.MerchantServicesServer
 		TCP	net.Listener
 	}
 	ControllerGrpcInterface interface {
@@ -22,15 +22,11 @@ type (
 )
 
 func InitGrpcServer(grpcCon controller_grpc.ControllerGrpc)  {
-
 	listen,err:=net.Listen("tcp",utils.GetEnv("PORT_GRPC"))
 	if err!=nil{
 		log.Println("failed to listen tcp:",err)
 	}
-
-	log.Println("register start")
-	merchant.RegisterTransServicesServer(grpcCon.Config,&grpcCon)
-	// merchant.RegisterInquiryServicesServer(grpcCon.Config,&grpcCon)
+	merchant.RegisterMerchantServicesServer(grpcCon.Config,&grpcCon)
 	log.Println("register grpc server")
 
 	err=grpcCon.Config.Serve(listen)
